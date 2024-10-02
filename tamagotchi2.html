@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tamagotchi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+      font-family: Arial, sans-serif;
+    }
+    #game-container {
+      background-color: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    #tamagotchi {
+      width: 300px;
+      height: 300px;
+      margin: 20px auto;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>Tamagotchi</h1>
+    <div>
+      <button onclick="tamagotchi.feed()">Alimentar</button>
+      <button onclick="tamagotchi.sleep()">Dormir</button>
+    </div>
+    <div id="tamagotchi"></div>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    let tamagotchi;
+    let lastUpdate = 0;
+    let currentState = 0;
+    let isEating = false;
+    let isSleeping = false;
+    let isDead = false;
+    let foodAnimation = { x: 0, y: 0, size: 0, angle: 0, active: false };
+    let sleepAnimation = { stars: [], bubbles: [] };
+
+    function setup() {
+      let canvas = createCanvas(300, 300);
+      canvas.parent('tamagotchi');
+      tamagotchi = new Tamagotchi();
+    }
+
+    function draw() {
+      background(220);
+      tamagotchi.display();
+      tamagotchi.update();
+      updateStatus();
+      
+      if (isEating && foodAnimation.active) {
+        displayFoodAnimation();
+      }
+      
+      if (isSleeping) {
+        displaySleepAnimation();
+      }
+    }
+
+    class Tamagotchi {
+      constructor() {
+        this.nome = "Seu Tamagotchi";
+        this.fome = 50;
+        this.sono = 50;
+        this.saude = 50;
+        this.positionX = width / 2;
+        this.positionY = height / 2;
+        this.direction = 1;
+        this.size = 50;
+      }
+
+      update() {
+        if (millis() - lastUpdate > 2000 && !isEating && !isSleeping && !isDead) {
+          currentState = (currentState + 1) % 3;
+          lastUpdate = millis();
+        }
+
+        if (!isEating && !isSleeping && !isDead) {
+          if (frameCount % 60 === 0) {
+            this.saude = max(this.saude - 1, 0);
+            this.fome = min(this.fome + 1, 100);
+            this.sono = min(this.sono + 1, 100);
+          }
+        }
+
+        if (this.saude === 0 && !isDead) {
+          isDead = true;
+          setTimeout(() => {
+            alert("Game Over");
+            location.reload();
+          }, 3000);
+        }
+
+        // Move the Tamagotchi
+        if (!isEating && !isSleeping) {
+          this.positionX += this.direction * 1;
+          if (this.positionX > width - this.size / 2 || this.positionX < this.size / 2) {
+            this.direction *= -1;
+          }
+        }
+      }
+
+      feed() {
+        if (!isDead && !isEating && !isSleeping) {
+          this.fome = max(this.fome - 10, 0);
+          this.saude = min(this.saude + 5, 100);
+          isEating = true;
+          currentState = 3;
+          this.startFoodAnimation();
+        }
+      }
+
+      startFoodAnimation() {
+        foodAnimation = { 
+          x: width / 2, 
+          y: -50, 
+          size: 30, 
+          angle: 0,
+          active: true
+        };
+        setTimeout(() => {
+          foodAnimation.active = false;
+          setTimeout(() => {
+            isEating = false;
+            currentState = 0;
+          }, 500);
+        }, 2500);
+      }
+
+      sleep() {
+        if (!isDead && !isEating && !isSleeping) {
+          this.sono = max(this.sono - 10, 0);
+          this.saude = min(this.saude + 5, 100);
+          isSleeping = true;
+          currentState = 4;
+          sleepAnimation.stars = [];
+          sleepAnimation.bubbles = [];
+          for (let i = 0; i < 5; i++) {
+            sleepAnimation.stars.push({
+              x: random(width),
+              y: random(height),
+              size: random(5, 10)
+            });
+          }
+          setTimeout(() => {
+            isSleeping = false;
+            currentState = 0;
+          }, 3000);
+        }
+      }
+
+      display() {
+        push();
+        translate(this.positionX, this.positionY);
+        scale(this.direction, 1);
+
+        // Body
+        fill(200);
+        ellipse(0, 0, this.size, this.size * 0.8);
+
+        // Face
+        if (isDead) {
+          fill(100);
+          ellipse(-10, -5, 10, 10);
+          ellipse(10, -5, 10, 10);
+          line(-15, 10, 15, 10);
+        } else if (isEating) {
+          fill(0);
+          ellipse(-10, -5, 8, 8);
+          ellipse(10, -5, 8, 8);
+          arc(0, 10, 20, 20, 0, PI);
+        } else if (isSleeping) {
+          stroke(0);
+          noFill();
+          arc(-10, -5, 10, 10, PI, TWO_PI);
+          arc(10, -5, 10, 10, PI, TWO_PI);
+          noStroke();
+          fill(0);
+          arc(0, 10, 20, 10, 0, PI);
+        } else {
+          fill(0);
+          ellipse(-10, -5, 8, 8);
+          ellipse(10, -5, 8, 8);
+          if (currentState === 0) {
+            arc(0, 10, 20, 20, 0, PI);
+          } else if (currentState === 1) {
+            arc(0, 15, 20, 10, PI, TWO_PI);
+          } else {
+            line(-10, 10, 10, 10);
+          }
+        }
+
+        // Ears
+        triangle(-25, -20, -15, -40, -5, -20);
+        triangle(25, -20, 15, -40, 5, -20);
+
+        pop();
+      }
+    }
+
+    function displayFoodAnimation() {
+      push();
+      translate(foodAnimation.x, foodAnimation.y);
+      rotate(foodAnimation.angle);
+      fill(255, 200, 100);
+      triangle(0, -foodAnimation.size/2, -foodAnimation.size/2, foodAnimation.size/2, foodAnimation.size/2, foodAnimation.size/2);
+      fill(255, 100, 100);
+      ellipse(0, -foodAnimation.size/4, foodAnimation.size/3);
+      pop();
+      
+      foodAnimation.y += 3;
+      foodAnimation.angle += 0.1;
+      
+      // Check if the food has reached the Tamagotchi's mouth
+      if (foodAnimation.y >= tamagotchi.positionY) {
+        foodAnimation.active = false;
+      }
+    }
+
+    function displaySleepAnimation() {
+      // Display stars
+      fill(255, 255, 0);
+      for (let star of sleepAnimation.stars) {
+        push();
+        translate(star.x, star.y);
+        rotate(frameCount * 0.05);
+        beginShape();
+        for (let i = 0; i < 5; i++) {
+          let angle = TWO_PI * i / 5 - HALF_PI;
+          let x = cos(angle) * star.size;
+          let y = sin(angle) * star.size;
+          vertex(x, y);
+          angle += TWO_PI / 10;
+          x = cos(angle) * star.size / 2;
+          y = sin(angle) * star.size / 2;
+          vertex(x, y);
+        }
+        endShape(CLOSE);
+        pop();
+        star.y -= 0.5;
+        if (star.y < -star.size) {
+          star.y = height + star.size;
+          star.x = random(width);
+        }
+      }
+      
+      // Display sleep bubbles
+      if (frameCount % 20 === 0 && sleepAnimation.bubbles.length < 5) {
+        sleepAnimation.bubbles.push({
+          x: tamagotchi.positionX + random(-20, 20),
+          y: tamagotchi.positionY - 30,
+          size: random(5, 15)
+        });
+      }
+      
+      noStroke();
+      fill(255, 255, 255, 150);
+      for (let i = sleepAnimation.bubbles.length - 1; i >= 0; i--) {
+        let bubble = sleepAnimation.bubbles[i];
+        ellipse(bubble.x, bubble.y, bubble.size);
+        bubble.y -= 1;
+        bubble.x += random(-0.5, 0.5);
+        if (bubble.y < -bubble.size) {
+          sleepAnimation.bubbles.splice(i, 1);
+        }
+      }
+    }
+
+    function updateStatus() {
+      let statusDiv = document.getElementById('status');
+      statusDiv.innerHTML = `
+        Fome: ${tamagotchi.fome} | 
+        Sono: ${tamagotchi.sono} | 
+        Saúde: ${tamagotchi.saude}
+      `;
+    }
+
+    function windowResized() {
+      // Não é necessário redimensionar o canvas, pois ele tem tamanho fixo
+    }
+  </script>
+</body>
+</html>
